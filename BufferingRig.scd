@@ -23,9 +23,10 @@
 };
 
 ~createLoopers = { | inBus, outBus, looperList, group |
-    8.do { | x | "Creating Looper %\n".postf(x);
-        looperList.add(~looperNew.value(inBus, outBus, group)); };
+    8.do { | x | looperList.add(~looperNew.value(inBus, outBus, group)); };
 };
+
+~currentLooperChannel = 0;
 
 /*
 Takes input from Channel 1 and uses the fader values to set the amplitude
@@ -39,7 +40,6 @@ TODO: make the pass-through handling less hacky
             if ((num >= 81) && (num <= 88))
                 {
                     var faderNum = num - 81;
-                    "Setting Shifter % to %\n".postf(faderNum, val);
                     if (faderNum != 3)
                         { shifterList[faderNum].setAmplitude(val / 127); }
                         { shifterList[faderNum].set(\amplitude, val / 127) };
@@ -50,26 +50,37 @@ TODO: make the pass-through handling less hacky
 
     MIDIFunc.cc(
         { | val, num, chan, source |
+            "num: %, val %\n".postf(num, val);
+            if ((val == 127) && (num >= 65) && (num <= 72))
+                {~currentLooperChannel = num - 65};
+            if ((num >= 73) && (num <= 80))
+                {};
+        },
+        chan:0;
+    );
+
+    MIDIFunc.cc(
+        { | val, num, chan, source |
             if (val == 127)
                 {
-                    switch(looperStates[0])
+                    switch(looperStates[~currentLooperChannel])
                         {\stopped}
                         {
-                            looperList[0].recordLoop;
-                            looperStates[0] = \recording;
-                            "Starting to Record".postln;
+                            looperList[~currentLooperChannel].recordLoop;
+                            looperStates[~currentLooperChannel] = \recording;
+                            "Starting to Record Looper %\n".postf;
                         }
                         {\recording}
                         {
-                            looperList[0].playLoop;
-                            looperStates[0] = \playing;
-                            "Starting to Play".postln;
+                            looperList[~currentLooperChannel].playLoop;
+                            looperStates[~currentLooperChannel] = \playing;
+                            "Starting to Play Looper %\n".postf;
                         }
                         {\playing}
                         {
-                            looperList[0].stopLoop;
-                            looperStates[0] = \stopped;
-                            "Stopping".postln;
+                            looperList[~currentLooperChannel].stopLoop;
+                            looperStates[~currentLooperChannel] = \stopped;
+                            "Stopping Looper %\n".postf;
                         };
                 }
         },
