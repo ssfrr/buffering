@@ -19,6 +19,10 @@ class Seq(object):
         self.callback = callback
 
     def step(self):
+        # catch the case where the step count was changed and
+        # we're now past the end of the sequence
+        if self.current_step_index >= self.step_count:
+            self.current_step_index = 0
         self.callback(self.steps[self.current_step_index])
         self.current_step_index += 1
         self.current_step_index %= self.step_count
@@ -40,23 +44,8 @@ class Seq(object):
         if not attr.startswith('set_'):
             raise AttributeError()
         attr = attr[4:]
-        # define a function that sets the given value on all steps
+        # define a function that sets the given value on all selected steps
         def set_step_value(value):
             for step in self.selected_steps:
                 setattr(step, attr, value)
         return set_step_value
-
-#    def set_note(self, value):
-#        self.set_selected_step_property('note', value)
-#
-#    def set_velocity(self, value):
-#        self.set_selected_step_property('velocity', value)
-#
-#    def set_cc1(self, value):
-#        self.set_selected_step_property('cc1', value)
-#
-#    def set_cc2(self, value):
-#        self.set_selected_step_property('cc2', value)
-#
-#    def set_duration(self, value):
-#        self.set_selected_step_property('duration', value)

@@ -109,3 +109,18 @@ class TestStepping(unittest.TestCase):
             self.seq.step()
         for i, step in enumerate(self.step_calls):
             self.assertEqual(step.note, 60 + i % 16)
+
+    def test_step_count_can_change(self):
+        self.seq.step_count = 7
+        for i in range(50):
+            self.seq.step()
+        for i, step in enumerate(self.step_calls):
+            self.assertEqual(step.note, 60 + i % 7)
+
+    def test_step_resets_if_current_step_is_greater_than_step_count(self):
+        self.seq.step_count = 16
+        for i in range(12):
+            self.seq.step()
+        self.seq.step_count = 10
+        self.seq.step()
+        self.assertEqual(self.step_calls[12].note, 60)
