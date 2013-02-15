@@ -23,9 +23,10 @@ class Seq(object):
         # we're now past the end of the sequence
         if self.current_step_index >= self.step_count:
             self.current_step_index = 0
-        self.callback(self.steps[self.current_step_index])
+        current_step = self.steps[self.current_step_index]
         self.current_step_index += 1
         self.current_step_index %= self.step_count
+        return current_step
 
     def select_step(self, step_index):
         step = self.steps[step_index]

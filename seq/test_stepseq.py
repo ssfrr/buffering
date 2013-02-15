@@ -76,7 +76,6 @@ class TestStepValueSetting(SeqTest):
 class TestStepping(unittest.TestCase):
     def setUp(self):
         self.seq = Seq()
-        self.seq.register_step_callback(self.step_callback)
         # set the velocity of all steps to 100
         for i in range(16):
             self.seq.select_step(i)
@@ -88,33 +87,21 @@ class TestStepping(unittest.TestCase):
             self.seq.select_step(i)
             self.seq.set_note(60 + i)
             self.seq.deselect_step(i)
-        self.step_calls = []
-
-    def step_callback(self, step):
-        self.step_calls.append(step)
-
-    def test_each_step_calls_callback(self):
-        for i in range(23):
-            self.seq.step()
-        self.assertEqual(len(self.step_calls), 23)
 
     def test_each_step_calls_next_step(self):
         for i in range(16):
-            self.seq.step()
-        for i, step in enumerate(self.step_calls):
+            step = self.seq.step()
             self.assertEqual(step.note, 60 + i)
 
     def test_steps_wrap(self):
         for i in range(50):
-            self.seq.step()
-        for i, step in enumerate(self.step_calls):
+            step = self.seq.step()
             self.assertEqual(step.note, 60 + i % 16)
 
     def test_step_count_can_change(self):
         self.seq.step_count = 7
         for i in range(50):
-            self.seq.step()
-        for i, step in enumerate(self.step_calls):
+            step = self.seq.step()
             self.assertEqual(step.note, 60 + i % 7)
 
     def test_step_resets_if_current_step_is_greater_than_step_count(self):
@@ -122,5 +109,5 @@ class TestStepping(unittest.TestCase):
         for i in range(12):
             self.seq.step()
         self.seq.step_count = 10
-        self.seq.step()
-        self.assertEqual(self.step_calls[12].note, 60)
+        step = self.seq.step()
+        self.assertEqual(step.note, 60)
