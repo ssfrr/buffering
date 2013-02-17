@@ -1,3 +1,4 @@
+MAX_STEPS = 16
 class Step(object):
     def __init__(self, note=0, velocity=0, cc1=0, cc2=0, duration=0):
         self.note = note
@@ -8,15 +9,11 @@ class Step(object):
 
 class Seq(object):
     def __init__(self):
-        self.step_count = 16
-        self.steps = [Step() for i in range(self.step_count)]
+        self.step_count = MAX_STEPS
+        self.steps = [Step() for i in range(MAX_STEPS)]
         # pitches, velocities, etc. can be assigned to multiple steps at once
         self.selected_steps = []
-        self.callback = None
         self.current_step_index = 0
-
-    def register_step_callback(self, callback):
-        self.callback = callback
 
     def step(self):
         # catch the case where the step count was changed and
@@ -29,6 +26,7 @@ class Seq(object):
         return current_step
 
     def select_step(self, step_index):
+        assert step_index < MAX_STEPS, "Out-of-range step: %d" % step_index
         step = self.steps[step_index]
         if step not in self.selected_steps:
             self.selected_steps.append(step)
@@ -36,12 +34,12 @@ class Seq(object):
     def deselect_step(self, step_index):
         self.selected_steps.remove(self.steps[step_index])
 
-    def set_selected_step_property(self, property_name, value):
-        for step in self.selected_steps:
-            setattr(step, property_name, value)
-
     # implement methods to set step attributes
     def __getattr__(self, attr):
+        '''
+        This allows us to call methods like set_note() or set_velocity() and
+        have them dispatched properly to all selected steps.
+        '''
         if not attr.startswith('set_'):
             raise AttributeError()
         attr = attr[4:]
