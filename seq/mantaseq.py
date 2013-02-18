@@ -2,7 +2,9 @@ from simplecoremidi import MIDISource
 from stepseq import Seq
 from manta import (Manta,
                    PadVelocityEvent,
+                   ButtonVelocityEvent,
                    PadValueEvent,
+                   SliderValueEvent,
                    note_from_pad,
                    pad_from_note,
                    row_from_pad,
@@ -22,6 +24,18 @@ class MantaSeq(object):
         self.next_step_timestamp = time.time()
         self.current_step = 0
         self.note_offs = {}
+        self.tempo_adjustment_in_progress = False
+        self.running = False
+
+    def cleanup(self):
+        self._manta.set_led_enable(PAD_AND_BUTTON, False)
+
+    def start(self):
+        self.running = True
+        self.next_step_timestamp = time.time()
+
+    def stop(self):
+        self.running = False
 
     def _get_step_color(self, step_num):
         if step_num == self.current_step:
@@ -49,8 +63,12 @@ class MantaSeq(object):
         for event in events:
             if isinstance(event, PadVelocityEvent):
                 self._process_pad_velocity_event(event)
+            if isinstance(event, ButtonVelocityEvent):
+                self._process_button_velocity_event(event)
             elif isinstance(event, PadValueEvent):
                 self._process_pad_value_event(event)
+            elif isinstance(event, SliderValueEvent):
+                self._process_slider_value_event(event)
 
         # send any pending note_offs
         for note_num, timestamp in self.note_offs.items():
@@ -61,7 +79,7 @@ class MantaSeq(object):
                 self._set_led_pad(OFF, pad_from_note(note_num))
 
         # if it's time for another step, do it
-        if now >= self.next_step_timestamp:
+        if self.running and now >= self.next_step_timestamp:
             last_step = self.current_step
             self.current_step = self._seq.current_step_index
             step_obj = self._seq.step()
@@ -92,6 +110,13 @@ class MantaSeq(object):
                 note_num = note_from_pad(event.pad_num)
                 self._send_midi_note(note_num, event.velocity)
 
+    def _process_button_velocity_event(self, event):
+        if event.velocity > 0:
+            if self.running:
+                self.stop()
+            else:
+                self.start()
+
     def _process_pad_value_event(self, event):
         # pad value messages are ignored for step selection pads
         if event.pad_num > 15:
@@ -111,6 +136,19 @@ class MantaSeq(object):
                 if step in self._seq.selected_steps:
                     self._set_led_pad(self._get_step_color(i), i)
 
+    def _process_slider_value_event(self, event):
+        if not event.touched:
+            self.tempo_adjustment_in_progress = False
+        elif self.tempo_adjustment_in_progress:
+            # the exponent should be between -1 and 1. Note that we're working
+            # with duration instead of tempo so the exponiation is backwards
+            exponent = (self.reference_slider_value - event.value)
+            self.step_duration = self.reference_step_duration * 2 ** exponent
+        else:
+            self.tempo_adjustment_in_progress = True
+            self.reference_step_duration = self.step_duration
+            self.reference_slider_value = event.value
+
 def make_note(note, velocity, channel = 0):
     return (0x90 | channel, note, velocity)
 
@@ -121,7 +159,7 @@ def main():
             seq.process()
             time.sleep(0.001)
     except KeyboardInterrupt:
-        pass
+        seq.cleanup()
 
 if __name__ == '__main__':
     main()

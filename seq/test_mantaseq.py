@@ -4,6 +4,8 @@ from mantaseq import MantaSeq
 from mantaseq import make_note
 from manta import (PadVelocityEvent,
                    PadValueEvent,
+                   ButtonVelocityEvent,
+                   SliderValueEvent,
                    AMBER, RED, OFF,
                    PAD_AND_BUTTON)
 
@@ -30,6 +32,7 @@ class MockedBoundaryTest(unittest.TestCase):
         self.seq._manta.process.side_effect = self.get_next_event
         self.seq._manta.set_led_pad.side_effect = self.set_led_state
         self.led_states = [OFF] * 48
+        self.seq.start()
 
     def step_time(self, amount):
         self.logical_time += amount
@@ -227,3 +230,44 @@ class TestStepping(MockedBoundaryTest):
         self.step_time(self.seq.step_duration)
         self.seq.process()
         self.assert_midi_note_sent(MIDI_BASE_NOTE, 0)
+
+class TestTempoAdjust(MockedBoundaryTest):
+    def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
+        initial_step_duration = self.seq.step_duration
+        self.event_queue.append(SliderValueEvent(0, True, 1))
+        self.event_queue.append(SliderValueEvent(0, True, 0))
+        self.event_queue.append(SliderValueEvent(0, False, 0))
+        self.process_queued_manta_events()
+        self.assertEqual(self.seq.step_duration, initial_step_duration * 2)
+
+    def test_swiping_full_left_to_right_should_double_tempo(self):
+        initial_step_duration = self.seq.step_duration
+        self.event_queue.append(SliderValueEvent(0, True, 0))
+        self.event_queue.append(SliderValueEvent(0, True, 1))
+        self.event_queue.append(SliderValueEvent(0, False, 0))
+        self.process_queued_manta_events()
+        self.assertEqual(self.seq.step_duration, initial_step_duration / 2)
+
+class TestStartStop(MockedBoundaryTest):
+    def test_should_not_execute_steps_if_stopped(self):
+        self.event_queue.append(ButtonVelocityEvent(2, 100))
+        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.add_sequenced_note(1, 0, 45)
+        self.process_queued_manta_events()
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.assert_no_midi_note_sent()
+
+    def test_restarting_should_only_execute_next_step(self):
+        self.add_sequenced_note(1, 0, 100)
+        self.add_sequenced_note(2, 1, 100)
+        self.process_queued_manta_events()
+        self.event_queue.append(ButtonVelocityEvent(2, 100))
+        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.step_time(10 * self.seq.step_duration)
+        self.seq.process()
+        self.event_queue.append(ButtonVelocityEvent(2, 100))
+        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.seq.process()
+        self.seq.process()
+        self.assert_midi_note_sent(MIDI_BASE_NOTE, 100)

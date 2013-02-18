@@ -49,6 +49,15 @@ class PadVelocityEvent(object):
         return "Pad Velocity Event: idx %d, velocity %d" % (
                 self.pad_num, self.velocity)
 
+class ButtonVelocityEvent(object):
+    def __init__(self, button_num, velocity):
+        self.button_num = button_num
+        self.velocity = velocity
+
+    def __str__(self):
+        return "Button Velocity Event: idx %d, velocity %d" % (
+                self.button_num, self.velocity)
+
 class PadValueEvent(object):
     def __init__(self, pad_num, value):
         self.pad_num = pad_num
@@ -56,6 +65,20 @@ class PadValueEvent(object):
 
     def __str__(self):
         return "Pad Value Event: idx %d, value %d" % (self.pad_num, self.value)
+
+class SliderValueEvent(object):
+    '''A touch, release, or movement on one of the two sliders.
+    If touched is false then the value is invalid'''
+    def __init__(self, slider_num, touched, value):
+        self.touched = touched
+        self.slider_num = slider_num
+        self.value = value
+
+    def __str__(self):
+        return "Slider Value Event: idx %d, %s, value %d" % (
+                self.slider_num,
+                'touched' if self.touched else 'not touched',
+                self.value)
 
 class Manta(object):
 
@@ -87,7 +110,9 @@ class Manta(object):
         self.event_queue.append(PadValueEvent(args[0], args[1]))
 
     def _slider_value_callback(self, path, tags, args, source):
-        pass
+        touched = False if args[1] == 0xffff else True
+        scaled_value = args[1] / 4096.0
+        self.event_queue.append(SliderValueEvent(args[0], touched, scaled_value))
 
     def _button_value_callback(self, path, tags, args, source):
         pass
@@ -96,7 +121,7 @@ class Manta(object):
         self.event_queue.append(PadVelocityEvent(args[0], args[1]))
 
     def _button_velocity_callback(self, path, tags, args, source):
-        pass
+        self.event_queue.append(ButtonVelocityEvent(args[0], args[1]))
 
     def _send_osc(self, path, *args):
         msg = OSCMessage(path)
