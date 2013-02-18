@@ -9,12 +9,22 @@ wickihayden = [0,  2,  4,  6,  8,  10, 12, 14,
                24, 26, 28, 30, 32, 34, 36, 38,
                31, 33, 35, 37, 39, 41, 43, 45]
 
+wickihayden_rev = dict([(wickihayden[i], i) for i in range(len(wickihayden))])
+
 def note_from_pad(pad_number):
     '''
     Returns a MIDI note number based on the pad index. The first
-    pad is set to be C2 (36).
+    pad is set to be C3 (48).
     '''
-    return wickihayden[pad_number] + 36
+    return wickihayden[pad_number] + 48
+
+def pad_from_note(note_number):
+    '''
+    Returns a pad index matching the given note number. Note that
+    this isn't uniquely defined, so converting from a pad to a note
+    and back is a lossy operation.
+    '''
+    return wickihayden_rev[note_number - 48]
 
 def row_from_pad(pad_number):
     return int(pad_number / 8)

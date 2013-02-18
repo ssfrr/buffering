@@ -9,7 +9,7 @@ from manta import (PadVelocityEvent,
 
 # base MIDI note (for the first pad used for note selection)
 # is C3
-MIDI_BASE_NOTE = 48
+MIDI_BASE_NOTE = 60
 
 class MockedBoundaryTest(unittest.TestCase):
     def setUp(self):
@@ -38,6 +38,12 @@ class MockedBoundaryTest(unittest.TestCase):
         self.manta_patch.stop()
         self.midi_patch.stop()
         self.time_patch.stop()
+
+    def add_sequenced_note(self, step, pad_offset, velocity):
+        self.enqueue_step_select(step)
+        self.enqueue_note_value_event(pad_offset, velocity)
+        self.enqueue_step_deselect(step)
+        self.enqueue_note_value_event(pad_offset, 0)
 
     def set_led_state(self, led_state, pad_num):
         self.led_states[pad_num] = led_state
@@ -153,26 +159,6 @@ class TestLEDBehavior(MockedBoundaryTest):
         self.process_queued_manta_events()
         self.assert_led_state(15, OFF)
 
-# changed desired behavior - step LEDs are only lit if there's an active
-# step there
-#    def test_selected_steps_are_lit_amber(self):
-#        self.enqueue_step_select(4)
-#        self.process_queued_manta_events()
-#        self.assert_led_state(4, AMBER)
-#
-#    def test_deselected_steps_are_off(self):
-#        self.enqueue_step_select(4)
-#        self.enqueue_step_deselect(4)
-#        self.process_queued_manta_events()
-#        self.assert_led_state(4, OFF)
-
-class TestStepping(MockedBoundaryTest):
-    def test_next_step_timestamp_should_be_incremented_on_first_process(self):
-        self.assertEqual(self.seq.next_step_timestamp, self.logical_time)
-        self.seq.process()
-        self.assertEqual(self.seq.next_step_timestamp,
-                self.logical_time + self.seq.step_duration)
-
     def test_red_led_should_track_step(self):
         self.seq.process()
         self.assert_led_state(0, RED)
@@ -195,3 +181,49 @@ class TestStepping(MockedBoundaryTest):
         self.process_queued_manta_events()
         self.assert_led_state(4, AMBER)
 
+    def test_note_leds_should_light_amber_on_sequence_playback(self):
+        self.add_sequenced_note(1, 0, 45)
+        self.process_queued_manta_events()
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.assertTrue(self.led_states[16] == AMBER or
+                self.led_states[6] == AMBER)
+
+    def test_note_leds_go_off_on_sequence_note_off(self):
+        self.add_sequenced_note(1, 0, 45)
+        self.process_queued_manta_events()
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.step_time(self.seq.step_duration)
+        self.seq.process()
+        self.assert_led_state(16, OFF)
+        self.assert_led_state(6, OFF)
+
+class TestStepping(MockedBoundaryTest):
+    def test_next_step_timestamp_should_be_incremented_on_first_process(self):
+        self.assertEqual(self.seq.next_step_timestamp, self.logical_time)
+        self.seq.process()
+        self.assertEqual(self.seq.next_step_timestamp,
+                self.logical_time + self.seq.step_duration)
+
+    def test_step_should_send_midi_note_if_velocity_nonzero(self):
+        # the first process() call kicks off the first step, so we have to
+        # start with the second step
+        self.add_sequenced_note(1, 0, 45)
+        self.process_queued_manta_events()
+        # make sure we're a little behind of the step times to account for
+        # possible floating point issues.
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.assert_midi_note_sent(MIDI_BASE_NOTE, 45)
+
+    def test_step_should_schedule_note_off(self):
+        self.add_sequenced_note(1, 0, 45)
+        self.process_queued_manta_events()
+        # make sure we're a little behind of the step times to account for
+        # possible floating point issues.
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.step_time(self.seq.step_duration)
+        self.seq.process()
+        self.assert_midi_note_sent(MIDI_BASE_NOTE, 0)
