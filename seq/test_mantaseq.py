@@ -202,6 +202,25 @@ class TestLEDBehavior(MockedBoundaryTest):
         self.assert_led_state(16, OFF)
         self.assert_led_state(6, OFF)
 
+    def test_note_leds_should_light_for_selected_steps(self):
+        # first test a low-velocity note
+        self.add_sequenced_note(1, 0, 45)
+        self.enqueue_step_select(1)
+        self.process_queued_manta_events()
+        self.assert_led_state(16, AMBER)
+        # make sure it turns off
+        self.enqueue_step_deselect(1)
+        self.process_queued_manta_events()
+        self.assert_led_state(16, OFF)
+        # now we go for a high-velocity note
+        self.add_sequenced_note(1, 0, 100)
+        self.enqueue_step_select(1)
+        self.process_queued_manta_events()
+        self.assert_led_state(16, RED)
+        self.enqueue_step_deselect(1)
+        self.process_queued_manta_events()
+        self.assert_led_state(16, OFF)
+
 class TestStepping(MockedBoundaryTest):
     def test_next_step_timestamp_should_be_incremented_on_first_process(self):
         self.assertEqual(self.seq.next_step_timestamp, self.logical_time)

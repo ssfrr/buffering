@@ -100,10 +100,22 @@ class MantaSeq(object):
 
     def _process_pad_velocity_event(self, event):
         if row_from_pad(event.pad_num) < 2:
+            step = self._seq.steps[event.pad_num]
+            try:
+                note_pad = pad_from_note(step.note)
+            except KeyError:
+                note_pad = None
             if event.velocity > 0:
                 self._seq.select_step(event.pad_num)
+                if note_pad:
+                    if step.velocity > self.led_color_threshold:
+                        self._set_led_pad(RED, note_pad)
+                    elif step.velocity > 0:
+                        self._set_led_pad(AMBER, note_pad)
             else:
                 self._seq.deselect_step(event.pad_num)
+                if note_pad:
+                    self._set_led_pad(OFF, note_pad)
         else:
             # only pass-through if no steps are selected
             if self._seq.selected_steps == []:
