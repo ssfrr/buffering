@@ -157,7 +157,7 @@ def main():
     try:
         while True:
             seq.process()
-            time.sleep(0.001)
+            time.sleep(0.0001)
     except KeyboardInterrupt:
         seq.cleanup()
 

@@ -6,7 +6,7 @@
         24, 26, 28, 30, 32, 34, 36, 38,
         31, 33, 35, 37, 39, 41, 43, 45];
 
-~registerMantaCallback = { | callback |
+~registerMantaPadCallback = { | callback |
     // callback should take a pad number and amplitude as arguments
     "Registering Manta Callback".postln;
     OSCFunc(

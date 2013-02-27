@@ -1,10 +1,10 @@
-"/Users/srussell/SuperCollider/buffering/BCF.scd".load;
-"/Users/srussell/SuperCollider/buffering/Looper.scd".load;
-"/Users/srussell/SuperCollider/buffering/Manta.scd".load;
-"/Users/srussell/SuperCollider/buffering/FilterBank.scd".load;
+"BCF.scd".load;
+"Looper.scd".load;
+"Manta.scd".load;
+"FilterBank.scd".load;
 
 // HW Inputs -> FilterBank -> HW Outputs
-s.options.hardwareBufferSize = 64;
+//s.options.hardwareBufferSize = 64;
 s.options.device = "JackRouter";
 s.waitForBoot {
     var microphoneBus = s.options.numOutputBusChannels;
@@ -19,7 +19,9 @@ s.waitForBoot {
     var maxDecayTime = 7;
     var looper;
     var looperState = \stopped;
+    var freqRand = 0.5;
 
+    "Booting...".postln;
     ~filterBankInit.value;
     ~looperInit.value;
     SynthDef(
@@ -60,7 +62,7 @@ s.waitForBoot {
         }
     });
 
-    ~registerMantaCallback.value({ | padNum, amp |
+    ~registerMantaPadCallback.value({ | padNum, amp |
         if (filterBanks[padNum] == nil)
         {
             if (amp != 0)
