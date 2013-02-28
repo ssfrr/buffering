@@ -13,6 +13,12 @@ from manta import (Manta,
 import time
 from mantaseqstates import *
 
+class MantaSeqNotePad(object):
+    pass
+
+class MantaSeqStepPad(object):
+    pass
+
 class MantaSeq(object):
     def __init__(self):
         #TODO: get rid of current_step attribute in favor of querying seq
@@ -29,7 +35,7 @@ class MantaSeq(object):
         self.running = False
         self.start_stop_button = 0
         self.shift_button = 1
-        self._state = MantaSeqIdleState()
+        self._state = MantaSeqIdleState(self)
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)
@@ -115,11 +121,11 @@ class MantaSeq(object):
     def _process_pad_velocity_event(self, event):
         if row_from_pad(event.pad_num) < 2:
             if event.velocity > 0:
-                self._state.process_step_press(self, event.pad_num)
+                self._state.process_step_press(event.pad_num)
             else:
-                self._state.process_step_release(self, event.pad_num)
+                self._state.process_step_release(event.pad_num)
         else:
-            self._state.process_note_velocity(self, event.pad_num,
+            self._state.process_note_velocity(event.pad_num,
                                               event.velocity)
 
     def _process_button_velocity_event(self, event):
@@ -128,20 +134,20 @@ class MantaSeq(object):
                 self.stop() if self.running else self.start()
         elif event.button_num == self.shift_button:
             if event.velocity > 0:
-                self._state.process_shift_press(self)
+                self._state.process_shift_press()
             else:
-                self._state.process_shift_release(self)
+                self._state.process_shift_release()
 
     def _process_pad_value_event(self, event):
         # pad value messages are ignored for step selection pads
         if event.pad_num > 15:
-            self._state.process_note_value(self, event.pad_num, event.value)
+            self._state.process_note_value(event.pad_num, event.value)
 
     def _process_slider_value_event(self, event):
         if event.touched:
-            self._state.process_slider_value(self, event.slider_num, event.value)
+            self._state.process_slider_value(event.slider_num, event.value)
         else:
-            self._state.process_slider_release(self, event.slider_num)
+            self._state.process_slider_release(event.slider_num)
 
 def make_note(note, velocity, channel = 0):
     return (0x90 | channel, note, velocity)
