@@ -253,24 +253,29 @@ class TestStepping(MockedBoundaryTest):
 class TestTempoAdjust(MockedBoundaryTest):
     def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
         initial_step_duration = self.seq.step_duration
+        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 100))
         self.event_queue.append(SliderValueEvent(0, True, 1))
         self.event_queue.append(SliderValueEvent(0, True, 0))
         self.event_queue.append(SliderValueEvent(0, False, 0))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 0))
         self.process_queued_manta_events()
         self.assertEqual(self.seq.step_duration, initial_step_duration * 2)
 
     def test_swiping_full_left_to_right_should_double_tempo(self):
         initial_step_duration = self.seq.step_duration
+        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 100))
         self.event_queue.append(SliderValueEvent(0, True, 0))
         self.event_queue.append(SliderValueEvent(0, True, 1))
         self.event_queue.append(SliderValueEvent(0, False, 0))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 0))
         self.process_queued_manta_events()
         self.assertEqual(self.seq.step_duration, initial_step_duration / 2)
 
+start_stop_button = 0
 class TestStartStop(MockedBoundaryTest):
     def test_should_not_execute_steps_if_stopped(self):
-        self.event_queue.append(ButtonVelocityEvent(2, 100))
-        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button, 100))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button, 0))
         self.add_sequenced_note(1, 0, 45)
         self.process_queued_manta_events()
         self.step_time(self.seq.step_duration + 0.001)
@@ -281,12 +286,16 @@ class TestStartStop(MockedBoundaryTest):
         self.add_sequenced_note(1, 0, 100)
         self.add_sequenced_note(2, 1, 100)
         self.process_queued_manta_events()
-        self.event_queue.append(ButtonVelocityEvent(2, 100))
-        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
+                                                    100))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
+                                                    0))
         self.step_time(10 * self.seq.step_duration)
         self.seq.process()
-        self.event_queue.append(ButtonVelocityEvent(2, 100))
-        self.event_queue.append(ButtonVelocityEvent(2, 0))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
+                                                    100))
+        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
+                                                    0))
         self.seq.process()
         self.seq.process()
         self.assert_midi_note_sent(MIDI_BASE_NOTE, 100)

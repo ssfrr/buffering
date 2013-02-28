@@ -11,9 +11,11 @@ from manta import (Manta,
                    OFF, AMBER, RED,
                    PAD_AND_BUTTON)
 import time
+from mantaseqstates import *
 
 class MantaSeq(object):
     def __init__(self):
+        #TODO: get rid of current_step attribute in favor of querying seq
         self._manta = Manta()
         self._midi_source = MIDISource('MantaSeq')
         self._seq = Seq()
@@ -24,8 +26,10 @@ class MantaSeq(object):
         self.next_step_timestamp = time.time()
         self.current_step = 0
         self.note_offs = {}
-        self.tempo_adjustment_in_progress = False
         self.running = False
+        self.start_stop_button = 0
+        self.shift_button = 1
+        self._state = MantaSeqIdleState()
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)
@@ -56,6 +60,15 @@ class MantaSeq(object):
 
     def _set_led_pad(self, *args):
         self._manta.set_led_pad(*args)
+
+    def _light_note_for_step(self, step_num):
+        step = self._seq.steps[step_num]
+        if step.velocity > 0:
+            self._update_note_led(pad_from_note(step.note))
+
+    def _update_note_led(self, pad_num):
+        #TODO consolidate LED logic here
+        pass
 
     def process(self):
         now = time.time()
@@ -98,71 +111,43 @@ class MantaSeq(object):
             # around
             self.next_step_timestamp += self.step_duration
 
+    # most of the events get deferred to the state, as they're state-dependent
     def _process_pad_velocity_event(self, event):
         if row_from_pad(event.pad_num) < 2:
-            step = self._seq.steps[event.pad_num]
-            try:
-                note_pad = pad_from_note(step.note)
-            except KeyError:
-                note_pad = None
             if event.velocity > 0:
-                self._seq.select_step(event.pad_num)
-                if note_pad:
-                    if step.velocity > self.led_color_threshold:
-                        self._set_led_pad(RED, note_pad)
-                    elif step.velocity > 0:
-                        self._set_led_pad(AMBER, note_pad)
+                self._state.process_step_press(self, event.pad_num)
             else:
-                self._seq.deselect_step(event.pad_num)
-                if note_pad:
-                    self._set_led_pad(OFF, note_pad)
+                self._state.process_step_release(self, event.pad_num)
         else:
-            # only pass-through if no steps are selected
-            if self._seq.selected_steps == []:
-                note_num = note_from_pad(event.pad_num)
-                self._send_midi_note(note_num, event.velocity)
+            self._state.process_note_velocity(self, event.pad_num,
+                                              event.velocity)
 
     def _process_button_velocity_event(self, event):
-        if event.velocity > 0:
-            if self.running:
-                self.stop()
+        if event.button_num == self.start_stop_button:
+            if event.velocity > 0:
+                self.stop() if self.running else self.start()
+        elif event.button_num == self.shift_button:
+            if event.velocity > 0:
+                self._state.process_shift_press(self)
             else:
-                self.start()
+                self._state.process_shift_release(self)
 
     def _process_pad_value_event(self, event):
         # pad value messages are ignored for step selection pads
         if event.pad_num > 15:
-            note_num = note_from_pad(event.pad_num)
-            self._seq.set_note(note_num)
-            self._seq.set_velocity(event.value)
-            # first set the pad color of the note pad
-            if event.value == 0:
-                self._set_led_pad(OFF, event.pad_num)
-            elif event.value < self.led_color_threshold:
-                self._set_led_pad(AMBER, event.pad_num)
-            else:
-                self._set_led_pad(RED, event.pad_num)
-
-            # then update the pad colors of any selected pads
-            for i, step in enumerate(self._seq.steps):
-                if step in self._seq.selected_steps:
-                    self._set_led_pad(self._get_step_color(i), i)
+            self._state.process_note_value(self, event.pad_num, event.value)
 
     def _process_slider_value_event(self, event):
-        if not event.touched:
-            self.tempo_adjustment_in_progress = False
-        elif self.tempo_adjustment_in_progress:
-            # the exponent should be between -1 and 1. Note that we're working
-            # with duration instead of tempo so the exponiation is backwards
-            exponent = (self.reference_slider_value - event.value)
-            self.step_duration = self.reference_step_duration * 2 ** exponent
+        if event.touched:
+            self._state.process_slider_value(self, event.slider_num, event.value)
         else:
-            self.tempo_adjustment_in_progress = True
-            self.reference_step_duration = self.step_duration
-            self.reference_slider_value = event.value
+            self._state.process_slider_release(self, event.slider_num)
 
 def make_note(note, velocity, channel = 0):
     return (0x90 | channel, note, velocity)
+
+def make_cc(cc_num, value, channel = 0):
+    return (0xB0 | channel, cc_num, value)
 
 def main():
     seq = MantaSeq()
