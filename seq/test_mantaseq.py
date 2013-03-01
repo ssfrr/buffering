@@ -142,11 +142,13 @@ class TestLEDBehavior(MockedBoundaryTest):
         self.seq._manta.set_led_enable.assert_called_with(PAD_AND_BUTTON, True)
 
     def test_low_pad_value_causes_amber_led(self):
+        self.enqueue_step_select(4)
         self.enqueue_note_value_event(0, 35)
         self.process_queued_manta_events()
         self.assert_led_state(16, AMBER)
 
     def test_high_pad_value_causes_red_led(self):
+        self.enqueue_step_select(4)
         self.enqueue_note_value_event(0, 100)
         self.process_queued_manta_events()
         self.assert_led_state(16, RED)

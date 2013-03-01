@@ -1,4 +1,4 @@
-from manta import note_from_pad, OFF, AMBER, RED
+from manta import note_from_pad, OFF, AMBER, RED, pad_from_note
 class MantaSeqState(object):
     def __init__(self, manta_seq):
         self.manta_seq = manta_seq
@@ -27,10 +27,22 @@ class MantaSeqState(object):
     def process_slider_release(self, slider_num):
         pass
 
+    def set_note_intensity_from_step_num(self, step_num, on):
+        '''if on is True, the intensity is set from the steps velocity.
+        if on is False, the intensity is set to zero'''
+        step = self.manta_seq._seq.steps[step_num]
+        if step.velocity > 0:
+            if on:
+                intensity = step.velocity
+            else:
+                intensity = 0
+            pad_num = pad_from_note(step.note)
+            self.manta_seq.set_pad_intensity(pad_num, intensity)
+
 class MantaSeqIdleState(MantaSeqState):
     def process_step_press(self, step_num):
         self.manta_seq._seq.select_step(step_num)
-        self.manta_seq._light_note_for_step(step_num)
+        self.set_note_intensity_from_step_num(step_num, True)
         self.manta_seq._state = MantaSeqStepsSelectedState(self.manta_seq)
 
     def process_shift_press(self):
@@ -43,30 +55,28 @@ class MantaSeqIdleState(MantaSeqState):
 class MantaSeqStepsSelectedState(MantaSeqState):
     def process_step_press(self, step_num):
         self.manta_seq._seq.select_step(step_num)
-        self.manta_seq._light_note_for_step(step_num)
+        self.set_note_intensity_from_step_num(step_num, True)
 
     def process_step_release(self, step_num):
         self.manta_seq._seq.deselect_step(step_num)
-        self.manta_seq._light_note_for_step(step_num)
+        self.set_note_intensity_from_step_num(step_num, False)
         if len(self.manta_seq._seq.selected_steps) == 0:
             self.manta_seq._state = MantaSeqIdleState(self.manta_seq)
+        # TODO: make sure all pads have intensity of 0, otherwise they
+        # could get stuck on, as the intensity doesn't get updated unless
+        # there are steps selected
 
     def process_note_value(self, pad_num, value):
         note_num = note_from_pad(pad_num)
         self.manta_seq._seq.set_note(note_num)
         self.manta_seq._seq.set_velocity(value)
-        # first set the pad color of the note pad
-        if value == 0:
-            self.manta_seq._set_led_pad(OFF, pad_num)
-        elif value < self.manta_seq.led_color_threshold:
-            self.manta_seq._set_led_pad(AMBER, pad_num)
-        else:
-            self.manta_seq._set_led_pad(RED, pad_num)
+        self.manta_seq.set_pad_intensity(pad_num, value)
 
         # then update the pad colors of any selected pads
         for i, step in enumerate(self.manta_seq._seq.steps):
             if step in self.manta_seq._seq.selected_steps:
-                self.manta_seq._set_led_pad(self.manta_seq._get_step_color(i), i)
+                active = (value > 0)
+                self.manta_seq.set_pad_active(i, active)
 
 class MantaSeqShiftedState(MantaSeqState):
     def process_shift_release(self):

@@ -13,11 +13,45 @@ from manta import (Manta,
 import time
 from mantaseqstates import *
 
-class MantaSeqNotePad(object):
-    pass
+class MantaSeqPadLED(object):
+    led_color_threshold = 75
+    def __init__(self, pad_num, manta):
+        self.pad_num = pad_num
+        self.manta = manta
+        self.led_state = OFF
+        self._intensity = 0
+        self._active = False
+        self._highlight = False
+        self.highlight_color = RED
+        self.active_color = AMBER
 
-class MantaSeqStepPad(object):
-    pass
+    def highlight(self, highlight):
+        self._highlight = highlight
+        self._update_led()
+
+    def active(self, active):
+        self._active = active
+        self._update_led()
+
+    def intensity(self, intensity):
+        self._intensity = intensity
+        self._update_led()
+
+    def _update_led(self):
+        if self._intensity > MantaSeqPadLED.led_color_threshold:
+            new_led_state = RED
+        elif self._highlight:
+            new_led_state = self.highlight_color
+        elif self._active:
+            new_led_state = self.active_color
+        elif self._intensity > 0:
+            new_led_state = AMBER
+        else:
+            new_led_state = OFF
+
+        if self.led_state != new_led_state:
+            self.manta.set_led_pad(new_led_state, self.pad_num)
+            self.led_state = new_led_state
 
 class MantaSeq(object):
     def __init__(self):
@@ -26,7 +60,6 @@ class MantaSeq(object):
         self._midi_source = MIDISource('MantaSeq')
         self._seq = Seq()
         self._manta.set_led_enable(PAD_AND_BUTTON, True)
-        self.led_color_threshold = 75
         self.step_duration = 0.125
         # the first step should get executed on the first process() call
         self.next_step_timestamp = time.time()
@@ -36,6 +69,7 @@ class MantaSeq(object):
         self.start_stop_button = 0
         self.shift_button = 1
         self._state = MantaSeqIdleState(self)
+        self.pad_leds = [MantaSeqPadLED(i, self._manta) for i in range(48)]
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)
@@ -64,17 +98,14 @@ class MantaSeq(object):
     def _schedule_note_off(self, note_num, timestamp):
         self.note_offs[note_num] = timestamp
 
-    def _set_led_pad(self, *args):
-        self._manta.set_led_pad(*args)
+    def set_pad_highlight(self, pad_num, highlight):
+        self.pad_leds[pad_num].highlight(highlight)
 
-    def _light_note_for_step(self, step_num):
-        step = self._seq.steps[step_num]
-        if step.velocity > 0:
-            self._update_note_led(pad_from_note(step.note))
+    def set_pad_active(self, pad_num, active):
+        self.pad_leds[pad_num].active(active)
 
-    def _update_note_led(self, pad_num):
-        #TODO consolidate LED logic here
-        pass
+    def set_pad_intensity(self, pad_num, intensity):
+        self.pad_leds[pad_num].intensity(intensity)
 
     def process(self):
         now = time.time()
@@ -95,7 +126,7 @@ class MantaSeq(object):
                 # send_midi_note will take care of removing the note
                 # from the list
                 self._send_midi_note(note_num, 0)
-                self._set_led_pad(OFF, pad_from_note(note_num))
+                self.set_pad_intensity(pad_from_note(note_num), 0)
 
         # if it's time for another step, do it
         if self.running and now >= self.next_step_timestamp:
@@ -107,12 +138,13 @@ class MantaSeq(object):
                 note_off_timestamp = self.next_step_timestamp + (step_obj.duration *
                             self.step_duration)
                 self._schedule_note_off(step_obj.note, note_off_timestamp)
-                self._set_led_pad(AMBER, pad_from_note(step_obj.note))
+                self.set_pad_intensity(pad_from_note(step_obj.note),
+                        step_obj.velocity)
 
             # update the step LEDs (previous and current)
-            self._set_led_pad(self._get_step_color(last_step), last_step)
-            self._set_led_pad(self._get_step_color(self.current_step),
-                                    self.current_step)
+            self.set_pad_highlight(last_step, False)
+            self.set_pad_highlight(self.current_step, True)
+
             # remember which step we turned on so we can turn it off next time
             # around
             self.next_step_timestamp += self.step_duration
