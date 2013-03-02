@@ -89,6 +89,9 @@ class MantaSeq(object):
         else:
             return OFF
 
+    def _send_midi_cc(self, cc_num, value):
+        self._midi_source.send(make_cc(cc_num, value))
+
     def _send_midi_note(self, note_num, velocity):
         # remove from note_offs dict if present
         self.note_offs.pop(note_num, None)

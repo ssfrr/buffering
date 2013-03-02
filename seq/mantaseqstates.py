@@ -52,6 +52,9 @@ class MantaSeqIdleState(MantaSeqState):
         note_num = note_from_pad(pad_num)
         self.manta_seq._send_midi_note(note_num, velocity)
 
+    def process_slider_value(self, slider_num, value):
+        self.manta_seq._send_midi_cc(slider_num, int(value * 127))
+
 class MantaSeqStepsSelectedState(MantaSeqState):
     def process_step_press(self, step_num):
         self.manta_seq._seq.select_step(step_num)

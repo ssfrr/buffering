@@ -1,7 +1,7 @@
 import unittest
 from mock import Mock, patch
 from mantaseq import MantaSeq
-from mantaseq import make_note
+from mantaseq import make_note, make_cc
 from manta import (PadVelocityEvent,
                    PadValueEvent,
                    ButtonVelocityEvent,
@@ -85,6 +85,9 @@ class MockedBoundaryTest(unittest.TestCase):
 
     def assert_midi_note_sent(self, note, velocity):
         self.seq._midi_source.send.assert_called_with(make_note(note, velocity))
+
+    def assert_midi_cc_sent(self, cc_num, value):
+        self.seq._midi_source.send.assert_called_with(make_cc(cc_num, value))
 
     def assert_no_midi_note_sent(self):
         self.assertEqual(len(self.seq._midi_source.send.mock_calls), 0)
@@ -273,7 +276,17 @@ class TestTempoAdjust(MockedBoundaryTest):
         self.process_queued_manta_events()
         self.assertEqual(self.seq.step_duration, initial_step_duration / 2)
 
-start_stop_button = 0
+class TestSliderCC(MockedBoundaryTest):
+    def test_slider0_should_send_cc0(self):
+        self.event_queue.append(SliderValueEvent(0, True, 0.5))
+        self.process_queued_manta_events()
+        self.assert_midi_cc_sent(0, 63)
+
+    def test_slider1_should_send_cc1(self):
+        self.event_queue.append(SliderValueEvent(1, True, 0.5))
+        self.process_queued_manta_events()
+        self.assert_midi_cc_sent(1, 63)
+
 class TestStartStop(MockedBoundaryTest):
     def test_should_not_execute_steps_if_stopped(self):
         self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button, 100))
