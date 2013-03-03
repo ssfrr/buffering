@@ -70,6 +70,8 @@ class MantaSeq(object):
         self.shift_button = 1
         self._state = MantaSeqIdleState(self)
         self.pad_leds = [MantaSeqPadLED(i, self._manta) for i in range(48)]
+        self._global_cc0 = 0
+        self._global_cc1 = 0
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)
@@ -143,8 +145,8 @@ class MantaSeq(object):
                 self._schedule_note_off(step_obj.note, note_off_timestamp)
                 self.set_pad_intensity(pad_from_note(step_obj.note),
                         step_obj.velocity)
-            self._send_midi_cc(0, step_obj.cc0)
-            self._send_midi_cc(1, step_obj.cc1)
+            self._send_midi_cc(0, self._combine_cc(self._global_cc0, step_obj.cc0))
+            self._send_midi_cc(1, self._combine_cc(self._global_cc1, step_obj.cc1))
 
             # update the step LEDs (previous and current)
             self.set_pad_highlight(last_step, False)
@@ -153,6 +155,11 @@ class MantaSeq(object):
             # remember which step we turned on so we can turn it off next time
             # around
             self.next_step_timestamp += self.step_duration
+    def _combine_cc(self, glob, step):
+        '''
+        combines the global cc (glob) with the per-step cc (step)
+        '''
+        return int(glob + step / 127.0 * (127 - glob))
 
     # most of the events get deferred to the state, as they're state-dependent
     def _process_pad_velocity_event(self, event):

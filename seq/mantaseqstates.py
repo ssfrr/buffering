@@ -53,7 +53,12 @@ class MantaSeqIdleState(MantaSeqState):
         self.manta_seq._send_midi_note(note_num, velocity)
 
     def process_slider_value(self, slider_num, value):
-        self.manta_seq._send_midi_cc(slider_num, int(value * 127))
+        cc_value = int(value * 127)
+        if slider_num == 0:
+            self.manta_seq._global_cc0 = cc_value
+        else:
+            self.manta_seq._global_cc1 = cc_value
+        self.manta_seq._send_midi_cc(slider_num, cc_value)
 
 class MantaSeqStepsSelectedState(MantaSeqState):
     def process_step_press(self, step_num):

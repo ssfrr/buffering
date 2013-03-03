@@ -290,6 +290,17 @@ class TestStepping(MockedBoundaryTest):
         self.assert_midi_cc_sent(0, 31)
         self.assert_midi_cc_sent(1, 95)
 
+    def test_step_cc_should_be_relative_to_global_cc(self):
+        self.enqueue_slider_value_event(0, 0.5)
+        self.enqueue_slider_value_event(1, 0.5)
+        self.set_step_cc(1, 0, 0.5)
+        self.set_step_cc(1, 1, 0.5)
+        self.process_queued_manta_events()
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.assert_midi_cc_sent(0, 94)
+        self.assert_midi_cc_sent(1, 94)
+
 class TestTempoAdjust(MockedBoundaryTest):
     def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
         initial_step_duration = self.seq.step_duration
