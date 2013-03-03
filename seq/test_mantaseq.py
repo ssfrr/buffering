@@ -281,6 +281,15 @@ class TestLEDBehavior(MockedBoundaryTest):
         self.process_queued_manta_events()
         self.assert_led_state(16, OFF)
 
+    def test_new_value_leds_should_override_old(self):
+        self.enqueue_step_select(1)
+        self.enqueue_note_value_event(0, 45)
+        self.enqueue_note_value_event(1, 45)
+        self.process_queued_manta_events()
+        self.assert_led_state(16, OFF)
+        self.assert_led_state(17, AMBER)
+
+
 class TestStepping(MockedBoundaryTest):
     def test_next_step_timestamp_should_be_incremented_on_first_process(self):
         self.assertEqual(self.seq.next_step_timestamp, self.logical_time)

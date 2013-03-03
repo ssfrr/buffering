@@ -116,6 +116,11 @@ class MantaSeqStepsSelectedState(MantaSeqState):
         note_num = note_from_pad(pad_num)
         self.manta_seq._seq.set_note(note_num)
         self.manta_seq._seq.set_velocity(value)
+        # note - this isn't very efficient. if necessary we should
+        # use the set_row_led API call
+        for i in range(48):
+            if i != pad_num:
+                self.manta_seq.set_pad_intensity(i, 0)
         self.manta_seq.set_pad_intensity(pad_num, value)
         if value > 0:
             self.manta_seq._selected_note = (note_num, value)
