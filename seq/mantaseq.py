@@ -72,6 +72,11 @@ class MantaSeq(object):
         self.pad_leds = [MantaSeqPadLED(i, self._manta) for i in range(48)]
         self._global_cc0 = 0
         self._global_cc1 = 0
+        # store the notenum and value of the last selected note, which will
+        # be assigned to new steps
+        self._selected_note = None
+        self._selected_cc0 = None
+        self._selected_cc1 = None
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)

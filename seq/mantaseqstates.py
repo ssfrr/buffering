@@ -39,10 +39,30 @@ class MantaSeqState(object):
             pad_num = pad_from_note(step.note)
             self.manta_seq.set_pad_intensity(pad_num, intensity)
 
+    def prefill_steps(self):
+        '''
+        If the mantaseq has any notes or sliders already selected,
+        assign them to the notes.
+        '''
+        selected_note = self.manta_seq._selected_note
+        if selected_note is not None:
+            self.manta_seq._seq.set_note(selected_note[0])
+            self.manta_seq._seq.set_velocity(selected_note[1])
+        selected_cc0 = self.manta_seq._selected_cc0
+        if selected_cc0 is not None:
+            self.manta_seq._seq.set_cc0(selected_cc0)
+        selected_cc1 = self.manta_seq._selected_cc1
+        if selected_cc1 is not None:
+            self.manta_seq._seq.set_cc1(selected_cc1)
+
 class MantaSeqIdleState(MantaSeqState):
     def process_step_press(self, step_num):
         self.manta_seq._seq.select_step(step_num)
         self.set_note_intensity_from_step_num(step_num, True)
+        self.prefill_steps()
+        if self.manta_seq._selected_note is not None:
+            self.manta_seq.set_pad_active(step_num, True)
+
         self.manta_seq._state = MantaSeqStepsSelectedState(self.manta_seq)
 
     def process_shift_press(self):
@@ -52,18 +72,36 @@ class MantaSeqIdleState(MantaSeqState):
         note_num = note_from_pad(pad_num)
         self.manta_seq._send_midi_note(note_num, velocity)
 
+    def process_note_value(self, pad_num, value):
+        note_num = note_from_pad(pad_num)
+        if value > 0:
+            self.manta_seq._selected_note = (note_num, value)
+        else:
+            self.manta_seq._selected_note = None
+
     def process_slider_value(self, slider_num, value):
         cc_value = int(value * 127)
         if slider_num == 0:
             self.manta_seq._global_cc0 = cc_value
+            self.manta_seq._selected_cc0 = cc_value
         else:
             self.manta_seq._global_cc1 = cc_value
+            self.manta_seq._selected_cc1 = cc_value
         self.manta_seq._send_midi_cc(slider_num, cc_value)
+
+    def process_slider_release(self, slider_num):
+        if slider_num == 0:
+            self.manta_seq._selected_cc0 = None
+        else:
+            self.manta_seq._selected_cc1 = None
 
 class MantaSeqStepsSelectedState(MantaSeqState):
     def process_step_press(self, step_num):
         self.manta_seq._seq.select_step(step_num)
         self.set_note_intensity_from_step_num(step_num, True)
+        self.prefill_steps()
+        if self.manta_seq._selected_note is not None:
+            self.manta_seq.set_pad_active(step_num, True)
 
     def process_step_release(self, step_num):
         self.manta_seq._seq.deselect_step(step_num)
@@ -79,6 +117,10 @@ class MantaSeqStepsSelectedState(MantaSeqState):
         self.manta_seq._seq.set_note(note_num)
         self.manta_seq._seq.set_velocity(value)
         self.manta_seq.set_pad_intensity(pad_num, value)
+        if value > 0:
+            self.manta_seq._selected_note = (note_num, value)
+        else:
+            self.manta_seq._selected_note = None
 
         # then update the pad colors of any selected pads
         for i, step in enumerate(self.manta_seq._seq.steps):

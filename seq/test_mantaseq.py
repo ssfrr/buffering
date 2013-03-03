@@ -164,6 +164,31 @@ class TestStepSetting(MockedBoundaryTest):
     def test_slider_value_sets_cc1(self):
         self.assertEqual(self.seq._seq.steps[3].cc1, 95)
 
+class TestStepValueQueuing(MockedBoundaryTest):
+    '''
+    These tests make sure that if the user selects a note or slider value, then
+    selects a step while still holding the value, the value will get assigned
+    to that step.
+    '''
+    def test_held_notes_are_assigned_to_new_steps(self):
+        self.enqueue_note_value_event(0, 100)
+        self.enqueue_step_select(3)
+        self.enqueue_step_deselect(3)
+        self.enqueue_note_value_event(0, 0)
+        self.process_queued_manta_events()
+        self.assertEqual(self.seq._seq.steps[3].note, MIDI_BASE_NOTE)
+
+    def test_held_cc_is_assigned_to_new_steps(self):
+        self.enqueue_slider_value_event(0, 0.5)
+        self.enqueue_slider_value_event(1, 0.5)
+        self.enqueue_step_select(3)
+        self.enqueue_step_deselect(3)
+        self.enqueue_slider_release_event(0)
+        self.enqueue_slider_release_event(1)
+        self.process_queued_manta_events()
+        self.assertEqual(self.seq._seq.steps[3].cc0, 63)
+        self.assertEqual(self.seq._seq.steps[3].cc1, 63)
+
 class TestLEDBehavior(MockedBoundaryTest):
     def test_initializes_leds(self):
         self.seq._manta.set_led_enable.assert_called_with(PAD_AND_BUTTON, True)
@@ -202,6 +227,12 @@ class TestLEDBehavior(MockedBoundaryTest):
     def test_active_steps_should_be_colored_amber(self):
         self.enqueue_step_select(4)
         self.enqueue_note_value_event(10, 45)
+        self.process_queued_manta_events()
+        self.assert_led_state(4, AMBER)
+
+    def test_prefilled_steps_should_be_colored_amber(self):
+        self.enqueue_note_value_event(10, 45)
+        self.enqueue_step_select(4)
         self.process_queued_manta_events()
         self.assert_led_state(4, AMBER)
 
