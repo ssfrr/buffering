@@ -48,12 +48,12 @@ class MantaSeqState(object):
         if selected_note is not None:
             self.manta_seq._seq.set_note(selected_note[0])
             self.manta_seq._seq.set_velocity(selected_note[1])
-        selected_cc0 = self.manta_seq._selected_cc0
-        if selected_cc0 is not None:
-            self.manta_seq._seq.set_cc0(selected_cc0)
         selected_cc1 = self.manta_seq._selected_cc1
         if selected_cc1 is not None:
             self.manta_seq._seq.set_cc1(selected_cc1)
+        selected_cc2 = self.manta_seq._selected_cc2
+        if selected_cc2 is not None:
+            self.manta_seq._seq.set_cc2(selected_cc2)
 
 class MantaSeqIdleState(MantaSeqState):
     def process_step_press(self, step_num):
@@ -82,18 +82,18 @@ class MantaSeqIdleState(MantaSeqState):
     def process_slider_value(self, slider_num, value):
         cc_value = int(value * 127)
         if slider_num == 0:
-            self.manta_seq._global_cc0 = cc_value
-            self.manta_seq._selected_cc0 = cc_value
-        else:
             self.manta_seq._global_cc1 = cc_value
             self.manta_seq._selected_cc1 = cc_value
-        self.manta_seq._send_midi_cc(slider_num, cc_value)
+        else:
+            self.manta_seq._global_cc2 = cc_value
+            self.manta_seq._selected_cc2 = cc_value
+        self.manta_seq._send_midi_cc(slider_num + 1, cc_value)
 
     def process_slider_release(self, slider_num):
         if slider_num == 0:
-            self.manta_seq._selected_cc0 = None
-        else:
             self.manta_seq._selected_cc1 = None
+        else:
+            self.manta_seq._selected_cc2 = None
 
 class MantaSeqStepsSelectedState(MantaSeqState):
     def process_step_press(self, step_num):
@@ -135,9 +135,9 @@ class MantaSeqStepsSelectedState(MantaSeqState):
 
     def process_slider_value(self, slider_num, value):
         if slider_num == 0:
-            self.manta_seq._seq.set_cc0(int(value * 127))
-        else:
             self.manta_seq._seq.set_cc1(int(value * 127))
+        else:
+            self.manta_seq._seq.set_cc2(int(value * 127))
 
 class MantaSeqShiftedState(MantaSeqState):
     def process_shift_release(self):

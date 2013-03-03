@@ -70,13 +70,13 @@ class MantaSeq(object):
         self.shift_button = 1
         self._state = MantaSeqIdleState(self)
         self.pad_leds = [MantaSeqPadLED(i, self._manta) for i in range(48)]
-        self._global_cc0 = 0
         self._global_cc1 = 0
+        self._global_cc2 = 0
         # store the notenum and value of the last selected note, which will
         # be assigned to new steps
         self._selected_note = None
-        self._selected_cc0 = None
         self._selected_cc1 = None
+        self._selected_cc2 = None
 
     def cleanup(self):
         self._manta.set_led_enable(PAD_AND_BUTTON, False)
@@ -150,8 +150,8 @@ class MantaSeq(object):
                 self._schedule_note_off(step_obj.note, note_off_timestamp)
                 self.set_pad_intensity(pad_from_note(step_obj.note),
                         step_obj.velocity)
-            self._send_midi_cc(0, self._combine_cc(self._global_cc0, step_obj.cc0))
             self._send_midi_cc(1, self._combine_cc(self._global_cc1, step_obj.cc1))
+            self._send_midi_cc(2, self._combine_cc(self._global_cc2, step_obj.cc2))
 
             # update the step LEDs (previous and current)
             self.set_pad_highlight(last_step, False)

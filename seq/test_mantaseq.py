@@ -50,7 +50,7 @@ class MockedBoundaryTest(unittest.TestCase):
 
     def set_step_cc(self, step, cc_num, value):
         self.enqueue_step_select(step)
-        self.enqueue_slider_value_event(cc_num, value)
+        self.enqueue_slider_value_event(cc_num-1, value)
         self.enqueue_step_deselect(step)
 
     def set_led_state(self, led_state, pad_num):
@@ -162,11 +162,11 @@ class TestStepSetting(MockedBoundaryTest):
     def test_pad_values_set_step_velocity(self):
         self.assertEqual(self.seq._seq.steps[3].velocity, 100)
 
-    def test_slider_value_sets_cc0(self):
-        self.assertEqual(self.seq._seq.steps[3].cc0, 31)
-
     def test_slider_value_sets_cc1(self):
-        self.assertEqual(self.seq._seq.steps[3].cc1, 95)
+        self.assertEqual(self.seq._seq.steps[3].cc1, 31)
+
+    def test_slider_value_sets_cc2(self):
+        self.assertEqual(self.seq._seq.steps[3].cc2, 95)
 
     def test_shift_allows_erasing_steps(self):
         self.enqueue_button_velocity_event(self.seq.shift_button, 100)
@@ -198,8 +198,8 @@ class TestStepValueQueuing(MockedBoundaryTest):
         self.enqueue_slider_release_event(0)
         self.enqueue_slider_release_event(1)
         self.process_queued_manta_events()
-        self.assertEqual(self.seq._seq.steps[3].cc0, 63)
         self.assertEqual(self.seq._seq.steps[3].cc1, 63)
+        self.assertEqual(self.seq._seq.steps[3].cc2, 63)
 
 class TestLEDBehavior(MockedBoundaryTest):
     def test_initializes_leds(self):
@@ -341,26 +341,26 @@ class TestStepping(MockedBoundaryTest):
         self.assert_midi_note_sent(MIDI_BASE_NOTE, 0)
 
     def test_step_should_send_cc(self):
-        self.set_step_cc(1, 0, 0.25)
-        self.set_step_cc(1, 1, 0.75)
+        self.set_step_cc(1, 1, 0.25)
+        self.set_step_cc(1, 2, 0.75)
         self.process_queued_manta_events()
         # make sure we're a little behind of the step times to account for
         # possible floating point issues.
         self.step_time(self.seq.step_duration + 0.001)
         self.seq.process()
-        self.assert_midi_cc_sent(0, 31)
-        self.assert_midi_cc_sent(1, 95)
+        self.assert_midi_cc_sent(1, 31)
+        self.assert_midi_cc_sent(2, 95)
 
     def test_step_cc_should_be_relative_to_global_cc(self):
         self.enqueue_slider_value_event(0, 0.5)
         self.enqueue_slider_value_event(1, 0.5)
-        self.set_step_cc(1, 0, 0.5)
         self.set_step_cc(1, 1, 0.5)
+        self.set_step_cc(1, 2, 0.5)
         self.process_queued_manta_events()
         self.step_time(self.seq.step_duration + 0.001)
         self.seq.process()
-        self.assert_midi_cc_sent(0, 94)
         self.assert_midi_cc_sent(1, 94)
+        self.assert_midi_cc_sent(2, 94)
 
 class TestTempoAdjust(MockedBoundaryTest):
     def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
@@ -384,15 +384,19 @@ class TestTempoAdjust(MockedBoundaryTest):
         self.assertEqual(self.seq.step_duration, initial_step_duration / 2)
 
 class TestSliderCC(MockedBoundaryTest):
-    def test_slider0_should_send_cc0(self):
+    def test_slider0_should_send_cc1(self):
+        # TODO: this test is broken because the value gets sent as part of the step
+        # by process()
         self.event_queue.append(SliderValueEvent(0, True, 0.5))
         self.process_queued_manta_events()
-        self.assert_midi_cc_sent(0, 63)
+        self.assert_midi_cc_sent(1, 63)
 
-    def test_slider1_should_send_cc1(self):
+    def test_slider1_should_send_cc2(self):
+        # TODO: this test is broken because the value gets sent as part of the step
+        # by process()
         self.event_queue.append(SliderValueEvent(1, True, 0.5))
         self.process_queued_manta_events()
-        self.assert_midi_cc_sent(1, 63)
+        self.assert_midi_cc_sent(2, 63)
 
 class TestStartStop(MockedBoundaryTest):
     def test_should_not_execute_steps_if_stopped(self):
