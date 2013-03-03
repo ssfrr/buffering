@@ -94,6 +94,9 @@ class MockedBoundaryTest(unittest.TestCase):
     def enqueue_slider_release_event(self, slider_num):
         self.event_queue.append(SliderValueEvent(slider_num, False, 0xFFFF))
 
+    def enqueue_button_velocity_event(self, button_num, velocity):
+        self.event_queue.append(ButtonVelocityEvent(button_num, velocity))
+
     def assert_midi_note_sent(self, note, velocity):
         self.seq._midi_source.send.assert_any_call(make_note(note, velocity))
 
@@ -150,6 +153,7 @@ class TestStepSetting(MockedBoundaryTest):
         self.enqueue_note_value_event(0, 100)
         self.enqueue_slider_value_event(0, 0.25)
         self.enqueue_slider_value_event(1, 0.75)
+        self.enqueue_step_deselect(3)
         self.process_queued_manta_events()
 
     def test_pad_values_set_step_note(self):
@@ -163,6 +167,14 @@ class TestStepSetting(MockedBoundaryTest):
 
     def test_slider_value_sets_cc1(self):
         self.assertEqual(self.seq._seq.steps[3].cc1, 95)
+
+    def test_shift_allows_erasing_steps(self):
+        self.enqueue_button_velocity_event(self.seq.shift_button, 100)
+        self.enqueue_step_select(3)
+        self.enqueue_step_deselect(3)
+        self.process_queued_manta_events()
+        self.assertEqual(self.seq._seq.steps[3].velocity, 0)
+
 
 class TestStepValueQueuing(MockedBoundaryTest):
     '''
@@ -289,6 +301,15 @@ class TestLEDBehavior(MockedBoundaryTest):
         self.assert_led_state(16, OFF)
         self.assert_led_state(17, AMBER)
 
+    def test_erased_step_should_have_led_off(self):
+        self.enqueue_step_select(1)
+        self.enqueue_note_value_event(0, 45)
+        self.enqueue_step_deselect(1)
+        self.enqueue_button_velocity_event(self.seq.shift_button, 100)
+        self.enqueue_step_select(1)
+        self.enqueue_step_deselect(1)
+        self.process_queued_manta_events()
+        self.assert_led_state(1, OFF)
 
 class TestStepping(MockedBoundaryTest):
     def test_next_step_timestamp_should_be_incremented_on_first_process(self):
@@ -344,21 +365,21 @@ class TestStepping(MockedBoundaryTest):
 class TestTempoAdjust(MockedBoundaryTest):
     def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
         initial_step_duration = self.seq.step_duration
-        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 100))
+        self.enqueue_button_velocity_event(self.seq.shift_button, 100)
         self.event_queue.append(SliderValueEvent(0, True, 1))
         self.event_queue.append(SliderValueEvent(0, True, 0))
         self.event_queue.append(SliderValueEvent(0, False, 0))
-        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 0))
+        self.enqueue_button_velocity_event(self.seq.shift_button, 0)
         self.process_queued_manta_events()
         self.assertEqual(self.seq.step_duration, initial_step_duration * 2)
 
     def test_swiping_full_left_to_right_should_double_tempo(self):
         initial_step_duration = self.seq.step_duration
-        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 100))
+        self.enqueue_button_velocity_event(self.seq.shift_button, 100)
         self.event_queue.append(SliderValueEvent(0, True, 0))
         self.event_queue.append(SliderValueEvent(0, True, 1))
         self.event_queue.append(SliderValueEvent(0, False, 0))
-        self.event_queue.append(ButtonVelocityEvent(self.seq.shift_button, 0))
+        self.enqueue_button_velocity_event(self.seq.shift_button, 0)
         self.process_queued_manta_events()
         self.assertEqual(self.seq.step_duration, initial_step_duration / 2)
 
@@ -375,8 +396,8 @@ class TestSliderCC(MockedBoundaryTest):
 
 class TestStartStop(MockedBoundaryTest):
     def test_should_not_execute_steps_if_stopped(self):
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button, 100))
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button, 0))
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 100)
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 0)
         self.add_sequenced_note(1, 0, 45)
         self.process_queued_manta_events()
         self.step_time(self.seq.step_duration + 0.001)
@@ -387,16 +408,12 @@ class TestStartStop(MockedBoundaryTest):
         self.add_sequenced_note(1, 0, 100)
         self.add_sequenced_note(2, 1, 100)
         self.process_queued_manta_events()
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
-                                                    100))
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
-                                                    0))
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 100)
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 0)
         self.step_time(10 * self.seq.step_duration)
         self.seq.process()
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
-                                                    100))
-        self.event_queue.append(ButtonVelocityEvent(self.seq.start_stop_button,
-                                                    0))
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 100)
+        self.enqueue_button_velocity_event(self.seq.start_stop_button, 0)
         self.seq.process()
         self.seq.process()
         self.assert_midi_note_sent(MIDI_BASE_NOTE, 100)
