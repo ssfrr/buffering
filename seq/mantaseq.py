@@ -143,6 +143,8 @@ class MantaSeq(object):
                 self._schedule_note_off(step_obj.note, note_off_timestamp)
                 self.set_pad_intensity(pad_from_note(step_obj.note),
                         step_obj.velocity)
+            self._send_midi_cc(0, step_obj.cc0)
+            self._send_midi_cc(1, step_obj.cc1)
 
             # update the step LEDs (previous and current)
             self.set_pad_highlight(last_step, False)

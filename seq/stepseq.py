@@ -1,10 +1,10 @@
 MAX_STEPS = 16
 class Step(object):
-    def __init__(self, note=0, velocity=0, cc1=0, cc2=0, duration=0.90):
+    def __init__(self, note=0, velocity=0, cc0=0, cc1=0, duration=0.90):
         self.note = note
         self.velocity = velocity
+        self.cc0 = cc0
         self.cc1 = cc1
-        self.cc2 = cc2
         # duration is a ratio relative to the step time
         self.duration = duration
 

@@ -81,6 +81,12 @@ class MantaSeqStepsSelectedState(MantaSeqState):
                 active = (value > 0)
                 self.manta_seq.set_pad_active(i, active)
 
+    def process_slider_value(self, slider_num, value):
+        if slider_num == 0:
+            self.manta_seq._seq.set_cc0(int(value * 127))
+        else:
+            self.manta_seq._seq.set_cc1(int(value * 127))
+
 class MantaSeqShiftedState(MantaSeqState):
     def process_shift_release(self):
         self.manta_seq._state = MantaSeqIdleState(self.manta_seq)

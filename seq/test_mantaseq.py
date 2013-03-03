@@ -48,6 +48,11 @@ class MockedBoundaryTest(unittest.TestCase):
         self.enqueue_step_deselect(step)
         self.enqueue_note_value_event(pad_offset, 0)
 
+    def set_step_cc(self, step, cc_num, value):
+        self.enqueue_step_select(step)
+        self.enqueue_slider_value_event(cc_num, value)
+        self.enqueue_step_deselect(step)
+
     def set_led_state(self, led_state, pad_num):
         self.led_states[pad_num] = led_state
 
@@ -83,14 +88,25 @@ class MockedBoundaryTest(unittest.TestCase):
     def enqueue_note_value_event(self, pad_offset, value):
         self.event_queue.append(PadValueEvent(pad_offset + 16, value))
 
+    def enqueue_slider_value_event(self, slider_num, value):
+        self.event_queue.append(SliderValueEvent(slider_num, True, value))
+
+    def enqueue_slider_release_event(self, slider_num):
+        self.event_queue.append(SliderValueEvent(slider_num, False, 0xFFFF))
+
     def assert_midi_note_sent(self, note, velocity):
-        self.seq._midi_source.send.assert_called_with(make_note(note, velocity))
+        self.seq._midi_source.send.assert_any_call(make_note(note, velocity))
 
     def assert_midi_cc_sent(self, cc_num, value):
-        self.seq._midi_source.send.assert_called_with(make_cc(cc_num, value))
+        self.seq._midi_source.send.assert_any_call(make_cc(cc_num, value))
 
     def assert_no_midi_note_sent(self):
-        self.assertEqual(len(self.seq._midi_source.send.mock_calls), 0)
+        calls = self.seq._midi_source.send.mock_calls
+        for name, args, kwargs in calls:
+            note_tuple = args[0]
+            if note_tuple[0] == 0x90:
+                self.fail('Expected no MIDI Note sent, got %d, %d' % 
+                        (note_tuple[1], note_tuple[2]))
 
     def assert_led_state(self, pad_num, state):
         self.assertEqual(self.led_states[pad_num], state)
@@ -132,6 +148,8 @@ class TestStepSetting(MockedBoundaryTest):
         super(TestStepSetting, self).setUp()
         self.enqueue_step_select(3)
         self.enqueue_note_value_event(0, 100)
+        self.enqueue_slider_value_event(0, 0.25)
+        self.enqueue_slider_value_event(1, 0.75)
         self.process_queued_manta_events()
 
     def test_pad_values_set_step_note(self):
@@ -139,6 +157,12 @@ class TestStepSetting(MockedBoundaryTest):
 
     def test_pad_values_set_step_velocity(self):
         self.assertEqual(self.seq._seq.steps[3].velocity, 100)
+
+    def test_slider_value_sets_cc0(self):
+        self.assertEqual(self.seq._seq.steps[3].cc0, 31)
+
+    def test_slider_value_sets_cc1(self):
+        self.assertEqual(self.seq._seq.steps[3].cc1, 95)
 
 class TestLEDBehavior(MockedBoundaryTest):
     def test_initializes_leds(self):
@@ -254,6 +278,17 @@ class TestStepping(MockedBoundaryTest):
         self.step_time(self.seq.step_duration)
         self.seq.process()
         self.assert_midi_note_sent(MIDI_BASE_NOTE, 0)
+
+    def test_step_should_send_cc(self):
+        self.set_step_cc(1, 0, 0.25)
+        self.set_step_cc(1, 1, 0.75)
+        self.process_queued_manta_events()
+        # make sure we're a little behind of the step times to account for
+        # possible floating point issues.
+        self.step_time(self.seq.step_duration + 0.001)
+        self.seq.process()
+        self.assert_midi_cc_sent(0, 31)
+        self.assert_midi_cc_sent(1, 95)
 
 class TestTempoAdjust(MockedBoundaryTest):
     def test_swiping_full_right_to_left_should_cut_tempo_in_half(self):
