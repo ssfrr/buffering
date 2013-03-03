@@ -174,6 +174,8 @@ class TestStepSetting(MockedBoundaryTest):
         self.enqueue_step_deselect(3)
         self.process_queued_manta_events()
         self.assertEqual(self.seq._seq.steps[3].velocity, 0)
+        self.assertEqual(self.seq._seq.steps[3].cc1, 0)
+        self.assertEqual(self.seq._seq.steps[3].cc2, 0)
 
 
 class TestStepValueQueuing(MockedBoundaryTest):

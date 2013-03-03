@@ -154,6 +154,8 @@ class MantaSeqShiftedState(MantaSeqState):
         self.manta_seq.set_pad_active(step_num, False)
         self.manta_seq._seq.select_step(step_num)
         self.manta_seq._seq.set_velocity(0)
+        self.manta_seq._seq.set_cc1(0)
+        self.manta_seq._seq.set_cc2(0)
         self.manta_seq._seq.deselect_step(step_num)
 
 class MantaSeqTempoAdjustState(MantaSeqState):
